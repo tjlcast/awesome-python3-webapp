@@ -59,5 +59,6 @@ class Model(dict, metaclass=ModelMetaclass):
         #print('SQL: %s' % sql)
         #print
 
+
 if __name__ == '__main__':
     pass
