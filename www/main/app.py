@@ -23,7 +23,6 @@ def init(loop):
     logging.info('server started at http://127.0.0.1:8086.....')
     return srv
 
-
 # 数据库连接池
 @asyncio.coroutine
 def create_pool(loop, **kw):
