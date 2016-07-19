@@ -1,9 +1,15 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 
+import logging
+logging.basicConfig(level=logging.INFO)
+import asyncio, os, json, time
+import aiomysql
+from datetime import datetime
+
+
 __author__ = 'tangjialiang'
 
-import logging
 
 class Field(object):
     def __init__(self, name, column_type):
@@ -26,7 +32,7 @@ class IntegerField(Field):
 
 class ModelMetaclass(type):
     def __new__(cls, name, bases, attrs):
-        if name == 'Model':
+        if name == 'model':
             return type.__new__(cls, name, bases, attrs)
         mappings = dict()
         tableName = attrs.get('__table__', None) or name
@@ -54,8 +60,7 @@ class ModelMetaclass(type):
         attrs['__primary_key__'] = primaryKey
         attrs['__fields__'] = fields
         attrs['__select__'] = 'select `%s`, %s from `%s`' % (primaryKey, ', '.join(escaped_fields), tableName)
-        attrs['__insert__'] = 'insert into `%s` (%s, `%s`) values (%s)' % (
-        tableName, ', '.join(escaped_fields), primaryKey, create_args_string(len(escaped_fields) + 1))
+        attrs['__insert__'] = 'insert into `%s` (%s, `%s`) values (%s)' % (tableName, ', '.join(escaped_fields), primaryKey, create_args_string(len(escaped_fields) + 1))
         attrs['__update__'] = 'update `%s` set %s where `%s`=?' % (
         tableName, ', '.join(map(lambda f: '`%s`=?' % (mappings.get(f).name or f), fields)), primaryKey)
         attrs['__delete__'] = 'delete from `%s` where `%s`=?' % (tableName, primaryKey)
@@ -70,7 +75,7 @@ class Model(dict, metaclass=ModelMetaclass):
         try:
             return self[key]
         except KeyError:
-            raise AttributeError(r"'Model' object has no attribute '%s'" % key)
+            raise AttributeError(r"'model' object has no attribute '%s'" % key)
 
     def __setattr__(self, key, value):
         self[key] = value
@@ -86,26 +91,75 @@ class Model(dict, metaclass=ModelMetaclass):
                 value = field.default if callable(field.default) else field.default
                 logging.debug('using default value for %s: %s' % (key, str(value)))
 
+    @asyncio.coroutine
     def save(self):
-        field = []
-        param = []
-        args = []
-        for k, v in self.__mappings__.items():
-            field.append(v.name)
-            param.append('?')
-            args.append(getattr(self, k, None))
-        sql = 'insert into %s () values ()' % (self.name, ''.join(field), ',',join(param))
-        #print('SQL: %s' % sql)
-        #print
+        args = list(map(self.getValueOrDefault, self.__fields__))
+        args.append(self.getValueOrDefault(self.__primary_key__))
+        rows = yield from execute(self.__insert__, args)
+        if rows != 1:
+            logging.info('save: rows is not 1!(row=%s)' % rows)
 
     @classmethod
-    @asyncio.corutine
+    @asyncio.coroutine
     def find(cls, pk):
-        ' find object by primary key. '
+        """
+        :doc find object by primary key.:
+        """
         rs = yield from select('%s where `%s`=?' % (cls.__select__, cls.__primary_key__), [pk], 1)
         if len(rs) == 0:
             return None
         return cls(**rs[0])
+
+#=========================================about database pool ==========================================================
+
+# 数据库连接池
+@asyncio.coroutine
+def create_pool(loop, **kw):
+    logging.info('create database connection pool...')
+    global __pool
+    __pool = yield from aiomysql.create_pool(
+        host = kw.get('host', 'locahost'),
+        port = kw.get('port', 3306),
+        user = kw.get('user'),
+        password = kw.get('password'),
+        db = kw.get('db'),
+        charset = kw.get('charset', 'utf8'),
+        autocommit = kw.get('maxsize', True),
+        maxsize = kw.get('maxsize', 10),
+        minsize = kw.get('minszie', 10),
+        loop = loop
+    )
+
+#数据库的select
+@asyncio.coroutine
+def select(sql, args, size=None):
+    logging.info('select: sql: {sql} args: {args}'.format(sql=sql, args=args))
+    global __pool
+    with (yield from __pool) as conn:
+        cur = yield from conn.cursor()
+        yield from cur.execute(sql.replace('?', '%s'), args)
+        if size:
+            rs = yield from cur.fetchmany(size)
+        else:
+            rs = yield from cur.fetchall()
+        yield from cur.close()
+        logging.info('rows returned: %s' % len(rs))
+        return rs
+
+#数据库的execute
+@asyncio.coroutine
+def execute(sql, args):
+    logging.info('execute: sql: {sql} args: {args}'.format(sql=sql, args=args))
+    global __pool
+    with (yield from __pool) as conn:
+        try:
+            cur = yield from conn.cursor()
+            yield from cur.execute(sql.replace('?', '%s'), args)
+            affected = cur.rowcount
+            yield from cur.close()
+        except BaseException as e:
+            raise
+        return affected
 
 
 if __name__ == '__main__':
