@@ -7,8 +7,47 @@ logging.basicConfig(level=logging.INFO)
 from aiohttp import web
 import asyncio, os, json, time
 import functools
+import jinja2
 from datetime import datetime
 
+
+
+#============================================about middleware================================================================
+
+
+@asyncio.coroutine
+def logger_factory(app, handler):
+    @asyncio.coroutine
+    def logger(request):
+        # 记录日志
+        logging.info('Request: %s %s' % (request.method, request.path))
+        # 继续处理请求
+        return (yield from handler(request))
+    return logger
+
+@asyncio.coroutine
+def response_factory(app, handle):
+    @asyncio.coroutine
+    def response(request):
+        # 结果
+        r = yield from handle(request)
+        if isinstance(r, web.StreamResponse):
+            return r
+        if isinstance(r, bytes):
+            resp = web.Response(body=r)
+            resp.content_type = 'application/octet-stream'
+            return resp
+        if isinstance(r, str):
+            resp = web.Response(body=r.encode('utf-8'))
+            resp.content_type = 'text/html;charset=utf-8'
+            return resp
+        if isinstance(r, dict):
+            pass
+#==============================================app======================================================================
+
+
+app = web.Application(loop=loop, middlewares=[logger_factory, response_factory])
+jinja2.init
 
 @asyncio.coroutine
 def index(request):
@@ -35,6 +74,12 @@ class RequestHandle(object):
         return r
 
 def add_route(app, fn):
+    """
+    :func 对url处理函数进行一步封装，再把封装的url处理函数添加到app的router中:
+    :param app:
+    :param fn:
+    :return:
+    """
     method = getattr(fn, '__methode__', None)
     path = getattr(fn, '__path__', None)
 
@@ -46,7 +91,7 @@ def add_route(app, fn):
     app.router.add_route(method, path, RequestHandle(app, fn))
 
 
-def add_route(app, module_name):
+def add_routes(app, module_name):
     n = module_name.rfind('.')
     if n == -1:
         mod = __import__(module_name, globals(), locals())
@@ -65,7 +110,10 @@ def add_route(app, module_name):
                 add_route(app, fn)
     pass
 
-#=========================================about get and post======================================================
+
+#=========================================ABOUT GET AND POST============================================================
+
+
 def get(path):
     def decorator(func):
         # 在该层内对func进行重新构建：wraps
