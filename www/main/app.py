@@ -10,8 +10,6 @@ import functools
 import jinja2
 from datetime import datetime
 
-
-
 #============================================about middleware================================================================
 
 
@@ -43,6 +41,8 @@ def response_factory(app, handle):
             return resp
         if isinstance(r, dict):
             pass
+
+
 #==============================================app======================================================================
 
 

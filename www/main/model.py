@@ -3,7 +3,6 @@
 
 __author__ = 'tangjialiang'
 
-from orm import
 import time
 import uuid
 
