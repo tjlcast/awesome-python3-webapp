@@ -12,22 +12,38 @@ __author__ = 'tangjialiang'
 
 
 class Field(object):
-    def __init__(self, name, column_type):
+    def __init__(self, name, column_type, primary_key, default):
         self.name = name
         self.column_type = column_type
-
+        self.priamry_key = primary_key
+        self.default = default
     def __str__(self):
-        return '<%s:%s>' % (self.__class__.__name__, self.name)
+        return '<%s, %s:%s>' % (self.__class__.__name__, self.column_type, self.name)
 
 
 class StringField(Field):
-    def __init__(self, name):
-        super(StringField, self).__init__(name, 'varchar(100)')
+    def __init__(self, name=None, primary_key=False, default=None, ddl='varchar(100)'):
+        super(StringField, self).__init__(name, name=name, primary_key=primary_key, default=default, column_type=ddl)
 
 
 class IntegerField(Field):
-    def __init__(self, name):
-        super(IntegerField, self).__init__(name, 'bigint')
+    def __init__(self, name=None, primary_key=False, default=0, ddl='varchar(100)'):
+        super(IntegerField, self).__init__(name, ddl, primary_key=primary_key, default=default)
+
+
+class BooleanField(Field):
+    def __init__(self, name=None, primary_key=False, default=False):
+        super(BooleanField, self).__init__(name, 'boolean', primary_key, default)
+
+
+class FloatField(Field):
+    def __init__(self, name=None, primary_key=False, default=0.0):
+        super(FloatField, self).__init__(name, 'real', primary_key=primary_key, default=default)
+
+
+class TextField(Field): 
+    def __init__(self, name=None, primary_key=False, default=None):
+        super(TextField, self).__init__(name, 'text', primary_key=primary_key, default=default)
 
 
 class ModelMetaclass(type):
@@ -109,6 +125,61 @@ class Model(dict, metaclass=ModelMetaclass):
         if len(rs) == 0:
             return None
         return cls(**rs[0])
+
+    @classmethod
+    @asyncio.coroutine
+    def findAll(cls, where=None, args=None, **kw):
+        'find all cases by where clause'
+        sql = [cls.__select__]
+        if where:
+            sql.append('where')
+            sql.append(where)
+        if args is None:
+            args = []
+        orderBy = kw.get('orderBy', None)
+        if orderBy:
+            sql.append('order by')
+            sql.append(orderBy)
+        limit = kw.get('limit', None)
+        if limit is not None:
+            sql.append('limit')
+            if isinstance(limit, int):
+                pass
+            elif isinstance(limit, tuple) and len(limit) == 2:
+                pass
+            else:
+                raise ValueError('Invaild limit value: %s' % str(limit))
+        rs = yield from select(''.join(sql), args)
+        return [cls(**r) for r in rs ] ##给该类实例！！
+
+
+    @classmethod
+    @asyncio.coroutine
+    def findNumber(cls, selectField, where=None, args=None):
+        'find number by select and number'
+        sql = ['select %s _num_ from `%s`' % (selectField, cls.__table__)]
+        if where:
+            sql.append('where')
+            sql.append(where)
+        rs = yield from select(' '.join(sql), args, 1)
+        if len(rs) == 0:
+            return None
+        return rs[0]['__num__']
+
+    @asyncio.coroutine
+    def update(self):
+        args = list(map(self.getValue, self.__field__))
+        args.append(self.getValue(self.__primary_key__))
+        rows = yield from execute(self.__update, args)
+        if rows != 1:
+            logging.warning('failed to update to primary key: affected rows: %s' % str(rows))
+
+    @asyncio.corouine
+    def remove(self):
+        args = [self.getValue(self.__primary_key__)]
+        rows = yield from execute(self.__delete__, args)
+        if rows != 1:
+            logging.warning('failed to remove by primary key: affected rows: %s' % str(rows))
 
 #=========================================about database pool ==========================================================
 
