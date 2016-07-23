@@ -7,11 +7,11 @@ logging.basicConfig(level=logging.INFO)
 from aiohttp import web
 import asyncio, os, json, time
 import functools
+from orm import create_pool
 import jinja2
 from datetime import datetime
 
-#============================================about middleware================================================================
-
+#============================================about middleware===========================================================
 
 @asyncio.coroutine
 def logger_factory(app, handler):
@@ -46,8 +46,6 @@ def response_factory(app, handle):
 #==============================================app======================================================================
 
 
-app = web.Application(loop=loop, middlewares=[logger_factory, response_factory])
-jinja2.init
 
 @asyncio.coroutine
 def index(request):
@@ -56,6 +54,7 @@ def index(request):
 
 @asyncio.coroutine
 def init(loop):
+    yield from
     app = web.Application(loop=loop)
     app.router.add_route('GET', '/', index)
     srv = yield from loop.create_server(app.make_handler(), '127.0.0.1', 8086)
@@ -136,6 +135,13 @@ def post(path):
         wrapper.__route__ = path
         return wrapper
     return decorator
+
+
+#=============================================start====================================================================
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(init(loop))
+loop.run_forever()
 
 
 if __name__ == '__main__':

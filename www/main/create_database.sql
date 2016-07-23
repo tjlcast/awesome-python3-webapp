@@ -6,6 +6,8 @@ create database awesome;
 
 use awesome;
 
+#CREATE USER 'username'@'host' IDENTIFIED BY 'password'; # host为允许该用户从什么地址登录， 若为任意可以设为%
+
 grant select, insert, update, delete on awesome.* to 'www-data'@'localhost' identified by 'www-data';
 
 create table users (
