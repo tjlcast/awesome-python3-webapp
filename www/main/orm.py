@@ -29,7 +29,7 @@ class Field(object):
     def __init__(self, name, column_type, primary_key, default):
         self.name = name
         self.column_type = column_type
-        self.priamry_key = primary_key
+        self.primary_key = primary_key
         self.default = default
     def __str__(self):
         return '<%s, %s:%s>' % (self.__class__.__name__, self.column_type, self.name)
@@ -72,7 +72,7 @@ class ModelMetaclass(type):
             if isinstance(v, Field):
                 logging.info('  found mapping: %s ==> %s' % (k, v))
                 mappings[k] = v
-                if v.primary_Key:
+                if v.primary_key and v.primary_key is True:
                     # 找到主键
                     if primaryKey:
                         raise RuntimeError('Duplicate primary key for field: %s' % k)
@@ -118,8 +118,9 @@ class Model(dict, metaclass=ModelMetaclass):
         if value is None:
             field = self.__mappings__[key]
             if field.default is not None:
-                value = field.default if callable(field.default) else field.default
+                value = field.default() if callable(field.default) else field.default
                 logging.debug('using default value for %s: %s' % (key, str(value)))
+        return value
 
     @asyncio.coroutine
     def save(self):
@@ -203,16 +204,16 @@ def create_pool(loop, **kw):
     logging.info('create database connection pool...')
     global __pool
     __pool = yield from aiomysql.create_pool(
-        host = kw.get('host', 'locahost'),
+        host = kw.get('host', 'localhost'),
         port = kw.get('port', 3306),
-        user = kw.get('www-data'),
-        password = kw.get('destination'),
-        db = kw.get('awesome'),
+        user = kw.get('user', 'www-data'),
+        password = kw.get('password', 'destination'),
+        db = kw.get('db', 'awesome'),
         charset = kw.get('charset', 'utf8'),
         autocommit = kw.get('maxsize', True),
         maxsize = kw.get('maxsize', 10),
-        minsize = kw.get('minszie', 10),
-        loop = loop
+        minsize = kw.get('minsize', 10),
+        loop = loop,
     )
 
 #数据库的select
@@ -243,12 +244,19 @@ def execute(sql, args):
             affected = cur.rowcount
             yield from cur.close()
         except BaseException as e:
+            logging.error('execute: %s' % e)
             raise
         return affected
 
 
-if __name__ == '__main__':
-    testStr = create_args_string(3)
-    create_pool()
+# ====================================  test ##########################################################################
 
-    pass
+
+
+if __name__ == '__main__':
+    print('begin')
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(asyncio.wait([create_pool(loop)]))
+    #loop.run_forever()
+    print('finish!')
+    loop.close()
