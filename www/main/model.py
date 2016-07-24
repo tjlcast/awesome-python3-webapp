@@ -5,6 +5,11 @@ __author__ = 'tangjialiang'
 
 import time
 import uuid
+from orm import StringField
+from orm import BooleanField
+from orm import FloatField
+from orm import Model
+from orm import TextField
 
 def next_id():
     return '%015d%s000' % (int(time.time() * 1000), uuid.uuid4().hex)
@@ -44,7 +49,6 @@ class Comment(Model):
     user_image = StringField()
     content = TextField()
     created_at = FloatField(default=time.time)
-
 
 
 if __name__ == '__main__':

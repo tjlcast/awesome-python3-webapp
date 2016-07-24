@@ -11,6 +11,20 @@ from datetime import datetime
 __author__ = 'tangjialiang'
 
 
+def create_args_string(num):
+    """
+    :func 依据输入的num生成相应数量sql中的'?'
+    :param num:
+    :return:
+    """
+    L = []
+    if isinstance(num, int)==False:
+        raise Exception('num is not int, num : %s' % num.__class__)
+    for n in range(num):
+        L.append('?')
+    return ', '.join(L)
+
+
 class Field(object):
     def __init__(self, name, column_type, primary_key, default):
         self.name = name
@@ -23,7 +37,7 @@ class Field(object):
 
 class StringField(Field):
     def __init__(self, name=None, primary_key=False, default=None, ddl='varchar(100)'):
-        super(StringField, self).__init__(name, name=name, primary_key=primary_key, default=default, column_type=ddl)
+        super(StringField, self).__init__(name, primary_key=primary_key, default=default, column_type=ddl)
 
 
 class IntegerField(Field):
@@ -48,7 +62,7 @@ class TextField(Field):
 
 class ModelMetaclass(type):
     def __new__(cls, name, bases, attrs):
-        if name == 'model':
+        if name == 'Model':
             return type.__new__(cls, name, bases, attrs)
         mappings = dict()
         tableName = attrs.get('__table__', None) or name
@@ -174,7 +188,7 @@ class Model(dict, metaclass=ModelMetaclass):
         if rows != 1:
             logging.warning('failed to update to primary key: affected rows: %s' % str(rows))
 
-    @asyncio.corouine
+    @asyncio.coroutine
     def remove(self):
         args = [self.getValue(self.__primary_key__)]
         rows = yield from execute(self.__delete__, args)
@@ -191,9 +205,9 @@ def create_pool(loop, **kw):
     __pool = yield from aiomysql.create_pool(
         host = kw.get('host', 'locahost'),
         port = kw.get('port', 3306),
-        user = kw.get('user'),
-        password = kw.get('password'),
-        db = kw.get('db'),
+        user = kw.get('www-data'),
+        password = kw.get('destination'),
+        db = kw.get('awesome'),
         charset = kw.get('charset', 'utf8'),
         autocommit = kw.get('maxsize', True),
         maxsize = kw.get('maxsize', 10),
@@ -234,4 +248,7 @@ def execute(sql, args):
 
 
 if __name__ == '__main__':
+    testStr = create_args_string(3)
+    create_pool()
+
     pass
