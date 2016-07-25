@@ -61,10 +61,32 @@ def init(loop):
     return srv
 
 
+def get_required_kw_args(fn):
+    pass
+
+
+def get_named_kw_args(fn):
+    pass
+
+
+def has_named_kw_args(fn):
+    pass
+
+
+def has_var_kw_arg(fn):
+    pass
+
+
+def has_request_arg(fn):
+    pass
+
+
 class RequestHandle(object):
+
     def __init__(self, app, fn):
         self._app = app
         self._func = fn
+
 
     @asyncio.coroutine
     def __call__(self, request):
@@ -73,7 +95,7 @@ class RequestHandle(object):
 
 def add_route(app, fn):
     """
-    :func 对url处理函数进行一步封装，再把封装的url处理函数添加到app的router中:
+    :func 对url处理函数进行一步封装(RRequestHandle)，再把封装的url处理函数添加到app的router中:
     :param app:
     :param fn:
     :return:
