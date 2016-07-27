@@ -8,7 +8,7 @@ import json, logging, inspect, functools
 
 class APIError(Exception):
     """
-    this base APIError which contains error(required), data(optional) and message(optional)
+    this base APIError.py which contains error(required), data(optional) and message(optional)
     """
     def __init__(self, error, data='', message=''):
         super(APIError, self).__init__(message)
